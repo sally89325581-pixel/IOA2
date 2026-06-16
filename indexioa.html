@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>IOA 二代</title>
+
+<!-- 添加到主屏幕所需的基础标签 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a2342">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --abyss: #0a2342;    /* 页面背景最深处 */
+    --shallow: #2f7fc4;  /* 页面背景最浅处 */
+    --depth: #123a63;
+    --surface: #1c4d7e;
+    --pearl: #f5f8fb;
+    --mist: #a9c4dd;
+    --ice: #8ecbf0;     /* 白楚年 */
+    --teal: #57d9c5;    /* 兰波 */
+    --amber: #f0a868;   /* 陆言 */
+    --accent: var(--teal);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: linear-gradient(180deg, var(--abyss) 0%, #15538f 55%, var(--shallow) 100%);
+    color: var(--pearl);
+    font-family: 'Noto Sans SC', -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+  }
+
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ---------- 头部 ---------- */
+  header { padding: 20px 20px 0; flex-shrink: 0; }
+
+  .title {
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 1px;
+    color: var(--pearl);
+  }
+
+  .wave { width: 100%; height: 18px; margin-top: 12px; overflow: hidden; }
+  .wave svg { width: 200%; height: 100%; animation: drift 14s linear infinite; }
+  @keyframes drift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .wave svg { animation: none; } }
+
+  /* ---------- 角色切换 ---------- */
+  .roles { display: flex; gap: 8px; padding: 14px 20px 16px; flex-shrink: 0; }
+
+  .role-btn {
+    flex: 1;
+    background: var(--depth);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 10px 6px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--mist);
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+
+  .role-btn.active { color: var(--abyss); border-color: transparent; }
+  .role-btn[data-role="白楚年"].active { background: var(--ice); }
+  .role-btn[data-role="兰波"].active   { background: var(--teal); }
+  .role-btn[data-role="陆言"].active   { background: var(--amber); }
+
+  /* ---------- 聊天区 ---------- */
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scroll-behavior: smooth;
+  }
+
+  .empty-state {
+    margin: auto;
+    text-align: center;
+    color: var(--mist);
+    font-size: 13px;
+    line-height: 1.8;
+    padding: 0 30px;
+  }
+
+  .bubble {
+    max-width: 78%;
+    padding: 11px 15px;
+    border-radius: 16px;
+    font-size: 14.5px;
+    line-height: 1.6;
+    animation: rise 0.25s ease;
+    word-break: break-word;
+  }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .bubble.user {
+    align-self: flex-end;
+    background: var(--surface);
+    color: var(--pearl);
+    border-radius: 16px 16px 4px 16px;
+  }
+
+  .bubble.role {
+    align-self: flex-start;
+    background: var(--depth);
+    border-left: 2px solid var(--accent);
+    border-radius: 16px 16px 16px 4px;
+  }
+
+  .bubble.role .name {
+    display: block;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+  }
+
+  .bubble.loading { color: var(--mist); font-style: italic; }
+
+  .cursor {
+    display: inline-block;
+    color: var(--accent);
+    animation: blink 0.9s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+
+  /* ---------- 输入区 ---------- */
+  footer {
+    flex-shrink: 0;
+    padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+    background: var(--depth);
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .input-row { display: flex; gap: 8px; align-items: flex-end; }
+
+  textarea {
+    flex: 1;
+    resize: none;
+    background: var(--surface);
+    border: none;
+    border-radius: 14px;
+    padding: 10px 14px;
+    color: var(--pearl);
+    font-family: inherit;
+    font-size: 14.5px;
+    max-height: 90px;
+    outline: none;
+  }
+
+  textarea::placeholder { color: var(--mist); }
+  textarea:disabled { opacity: 0.5; }
+
+  #sendBtn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity 0.2s, background 0.25s;
+  }
+
+  #sendBtn:disabled { opacity: 0.4; cursor: default; }
+  #sendBtn svg { width: 18px; height: 18px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="title">IOA 二代</div>
+    <div class="wave">
+      <svg viewBox="0 0 200 20" preserveAspectRatio="none">
+        <path d="M0 10 Q 12.5 0, 25 10 T 50 10 T 75 10 T 100 10 T 125 10 T 150 10 T 175 10 T 200 10"
+              fill="none" stroke="#1d4860" stroke-width="1.5"/>
+      </svg>
+    </div>
+  </header>
+
+  <div class="roles" id="roles">
+    <button class="role-btn" data-role="白楚年">白楚年</button>
+    <button class="role-btn" data-role="兰波">兰波</button>
+    <button class="role-btn" data-role="陆言">陆言</button>
+  </div>
+
+  <main id="chat">
+    <div class="empty-state" id="emptyState">还没有选好要找谁说话<br>点上面的名字试试</div>
+  </main>
+
+  <footer>
+    <div class="input-row">
+      <textarea id="input" rows="1" placeholder="选好角色后，说点什么……" disabled></textarea>
+      <button id="sendBtn" disabled aria-label="发送">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0a2342" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </footer>
+</div>
+
+<script>
+  // ============ 在这里填写你的 Dify 信息 ============
+  const API_KEY = "app-lQRhEeOuGMG6auMzG2LCF9uh";          // 从 Dify「访问 API」页面复制完整密钥
+  const API_URL = "https://api.dify.ai/v1/workflows/run";
+
+  // 对应你工作流「开始」节点里的两个输入变量名（已按截图填好）
+  const ROLE_VAR  = "IOA_Troublemaker";
+  const INPUT_VAR = "user_input";
+  // ===================================================
+
+  const ACCENT_COLORS = { '白楚年': '#8ecbf0', '兰波': '#57d9c5', '陆言': '#f0a868' };
+
+  const roleButtons = document.querySelectorAll('.role-btn');
+  const chatEl = document.getElementById('chat');
+  const inputEl = document.getElementById('input');
+  const sendBtn = document.getElementById('sendBtn');
+
+  let currentRole = null;
+  const histories = { '白楚年': [], '兰波': [], '陆言': [] };
+
+  roleButtons.forEach(btn => {
+    btn.addEventListener('click', () => switchRole(btn.dataset.role));
+  });
+
+  function switchRole(role) {
+    currentRole = role;
+    roleButtons.forEach(b => b.classList.toggle('active', b.dataset.role === role));
+    document.documentElement.style.setProperty('--accent', ACCENT_COLORS[role]);
+    inputEl.disabled = false;
+    sendBtn.disabled = false;
+    inputEl.placeholder = `跟${role}说点什么……`;
+    renderHistory();
+  }
+
+  function renderHistory() {
+    chatEl.innerHTML = '';
+    const msgs = histories[currentRole];
+    if (msgs.length === 0) {
+      chatEl.innerHTML = `<div class="empty-state">还没有跟${currentRole}说过话<br>发条消息试试</div>`;
+      return;
+    }
+    msgs.forEach(m => appendBubble(m.from, m.text));
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  function appendBubble(from, text) {
+    const div = document.createElement('div');
+    div.className = `bubble ${from === 'user' ? 'user' : 'role'}`;
+    if (from !== 'user') {
+      const nameEl = document.createElement('span');
+      nameEl.className = 'name';
+      nameEl.textContent = currentRole;
+      div.appendChild(nameEl);
+    }
+    div.appendChild(document.createTextNode(text));
+    chatEl.appendChild(div);
+    chatEl.scrollTop = chatEl.scrollHeight;
+    return div;
+  }
+
+  function setBubbleText(bubbleEl, text, showCursor) {
+    bubbleEl.innerHTML = '';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'name';
+    nameEl.textContent = currentRole;
+    bubbleEl.appendChild(nameEl);
+    bubbleEl.appendChild(document.createTextNode(text));
+    if (showCursor) {
+      const cursor = document.createElement('span');
+      cursor.className = 'cursor';
+      cursor.textContent = '▍';
+      bubbleEl.appendChild(cursor);
+    }
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text || !currentRole) return;
+
+    histories[currentRole].push({ from: 'user', text });
+    appendBubble('user', text);
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    sendBtn.disabled = true;
+
+    const replyBubble = appendBubble('role', '');
+    setBubbleText(replyBubble, '', true);
+
+    let fullText = '';
+    let displayedText = '';
+    let pendingQueue = [];
+    let typewriterTimer = null;
+
+    // 匀速把队列里的字一点点吐出来，不管网络一次发来多大一段
+    function startTypewriter() {
+      if (typewriterTimer) return;
+      typewriterTimer = setInterval(() => {
+        if (pendingQueue.length === 0) return;
+        // 队列堆积太多时自动加速，避免长回复显示完要等很久
+        const batch = Math.max(1, Math.ceil(pendingQueue.length / 25));
+        displayedText += pendingQueue.splice(0, batch).join('');
+        setBubbleText(replyBubble, displayedText, true);
+      }, 25);
+    }
+
+    function enqueue(chunk) {
+      pendingQueue.push(...chunk.split(''));
+      startTypewriter();
+    }
+
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          inputs: {
+            [ROLE_VAR]: currentRole,
+            [INPUT_VAR]: text
+          },
+          response_mode: 'streaming',
+          user: 'web-user-001'
+        })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`接口返回 ${res.status}：${errText}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // 最后一行可能不完整，留到下一轮拼接
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          const jsonStr = trimmed.slice(5).trim();
+          if (!jsonStr) continue;
+
+          let payload;
+          try { payload = JSON.parse(jsonStr); } catch { continue; }
+
+          if (payload.event === 'text_chunk' && payload.data && payload.data.text) {
+            fullText += payload.data.text;
+            enqueue(payload.data.text);
+          }
+          if (payload.event === 'workflow_finished') {
+            const outputs = (payload.data && payload.data.outputs) || {};
+            if (!fullText) {
+              fullText = pickReply(outputs);
+              enqueue(fullText);
+            }
+          }
+          if (payload.event === 'workflow_failed' || payload.event === 'error') {
+            throw new Error((payload.data && payload.data.error) || '工作流执行出错');
+          }
+        }
+      }
+
+      // 网络数据收完了，但吐字队列可能还没显示完，等它播完再收尾
+      while (pendingQueue.length > 0) {
+        await new Promise(r => setTimeout(r, 30));
+      }
+      clearInterval(typewriterTimer);
+      setBubbleText(replyBubble, fullText || '（没有收到内容）', false);
+      histories[currentRole].push({ from: 'role', text: fullText || '（没有收到内容）' });
+
+    } catch (err) {
+      clearInterval(typewriterTimer);
+      setBubbleText(replyBubble, `没能收到回应：${err.message}`, false);
+      console.error(err);
+    } finally {
+      sendBtn.disabled = false;
+    }
+  }
+
+  // 依次尝试常见输出字段名；都没命中时把原始 outputs 打出来方便排查
+  function pickReply(outputs) {
+    const candidates = ['answer', 'output', 'text', 'result', 'response'];
+    for (const key of candidates) {
+      if (typeof outputs[key] === 'string' && outputs[key]) return outputs[key];
+    }
+    const firstString = Object.values(outputs).find(v => typeof v === 'string');
+    if (firstString) return firstString;
+    return `（未识别输出字段，原始返回：${JSON.stringify(outputs)}）`;
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 90) + 'px';
+  });
+</script>
+</body>
+</html>
